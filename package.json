@@ -1,0 +1,1 @@
+{"name":"gpchan-skyline-dash","private":true,"type":"module","scripts":{"test":"node --test tests/sim.test.js","start":"python3 serve.py 4188"}}

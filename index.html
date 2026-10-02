@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#2c2a6e">
+<title>지피짱: 스카이라인 대시</title>
+<style>
+:root{
+  --pink:#ff5fb8;--pink2:#ff9fd6;--cyan:#5ff2ff;--yellow:#ffd34d;--mint:#68ffb0;
+  --ink:#1a1438;--ink2:#2c2560;--paper:#fff8fd;--muted:#b9b0e0;
+  --glass:rgba(26,20,56,.72);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#2c2a6e;color:var(--paper);
+  font-family:"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;border:0;cursor:pointer;background:none}
+button:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
+.hidden{display:none!important}
+#game{position:fixed;inset:0;width:100%;height:100%;display:block}
+.layer{position:fixed;inset:0;pointer-events:none;z-index:10}
+.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace}
+
+/* Loading */
+#loading{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:linear-gradient(180deg,#2c3c9a,#ff86b0 70%,#ffc58a)}
+#loading .box{width:min(320px,80vw);text-align:center}
+#loading h2{font-size:15px;letter-spacing:.3em;font-weight:900;margin-bottom:14px;text-shadow:0 2px 0 #0003}
+#load-bar{height:8px;border-radius:99px;background:#ffffff40;overflow:hidden}
+#load-bar i{display:block;height:100%;width:0;background:#fff;border-radius:99px;transition:width .2s}
+#load-msg{margin-top:10px;font-size:12px;opacity:.85}
+
+/* Title */
+#title{position:fixed;inset:0;z-index:20;pointer-events:none}
+#title .left{position:absolute;left:max(28px,5vw);top:50%;transform:translateY(-50%);width:min(440px,46vw);pointer-events:auto}
+.logo-ko{display:inline-block;font-size:15px;font-weight:900;letter-spacing:.12em;background:var(--ink);padding:6px 12px;border-radius:8px;transform:rotate(-3deg);box-shadow:4px 4px 0 var(--pink)}
+.logo{font-style:italic;font-weight:1000;font-size:clamp(46px,7.4vw,96px);line-height:.86;letter-spacing:-.04em;margin:14px 0 6px;
+  color:#fff;text-shadow:0 0 0 #fff,4px 4px 0 var(--pink),8px 8px 0 var(--ink)}
+.logo span{display:block;color:var(--yellow)}
+.tagline{font-size:15px;font-weight:700;line-height:1.55;margin:16px 0 22px;text-shadow:0 1px 6px #0006;max-width:380px}
+.btn{display:inline-flex;align-items:center;gap:12px;padding:15px 26px;border-radius:16px;font-weight:900;font-size:19px;
+  background:var(--yellow);color:var(--ink);box-shadow:0 6px 0 #c48a12,0 12px 24px #0005;transition:transform .08s}
+.btn:hover{transform:translateY(-2px)}.btn:active{transform:translateY(3px);box-shadow:0 2px 0 #c48a12}
+.btn kbd{font:800 12px ui-monospace,monospace;background:var(--ink);color:var(--yellow);padding:3px 7px;border-radius:6px}
+.btn.secondary{background:#ffffffe6;box-shadow:0 6px 0 #9f95d0,0 12px 24px #0004;font-size:16px;padding:12px 20px}
+.best-line{margin-top:18px;font-size:13px;font-weight:700;opacity:.92}
+.best-line b{font-size:18px;color:var(--yellow)}
+.controls{position:absolute;right:max(20px,3vw);bottom:max(20px,3vh);display:grid;grid-template-columns:auto auto;gap:6px 12px;
+  background:var(--glass);border-radius:16px;padding:14px 18px;font-size:12px;backdrop-filter:blur(8px);pointer-events:auto}
+.controls kbd{font:800 11px ui-monospace,monospace;background:#ffffff1f;border:1px solid #ffffff35;border-radius:6px;padding:2px 6px;justify-self:end;white-space:nowrap}
+.controls .h{grid-column:1/3;font-weight:900;letter-spacing:.2em;font-size:10px;color:var(--pink2);margin-bottom:2px}
+
+/* HUD */
+#hud{opacity:0;transition:opacity .4s}
+#hud.on{opacity:1}
+#score-box{position:absolute;left:20px;top:16px;display:flex;align-items:center;gap:12px}
+#mult{position:relative;width:62px;height:62px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(var(--pink) calc(var(--flow,0)*1turn),#ffffff25 0);transition:transform .15s}
+#mult::before{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--ink)}
+#mult b{position:relative;font:italic 1000 23px/1 system-ui;color:#fff}
+#mult.pop{transform:scale(1.25)}
+#mult[data-m="1"] b{color:#c9c2ee}
+#score{font:italic 1000 38px/1 system-ui;letter-spacing:-.02em;text-shadow:3px 3px 0 var(--ink),0 0 18px #0005}
+#score-sub{font-size:11px;font-weight:800;letter-spacing:.18em;opacity:.85;margin-top:3px}
+#right-hud{position:absolute;right:16px;top:16px;display:flex;gap:8px;align-items:flex-start}
+.chipbox{background:var(--glass);border-radius:12px;padding:8px 12px;font-weight:900;font-size:16px;display:flex;align-items:center;gap:7px;backdrop-filter:blur(6px)}
+.chipbox i{width:12px;height:12px;background:var(--cyan);transform:rotate(45deg);box-shadow:0 0 8px var(--cyan)}
+.icon-btn{pointer-events:auto;width:42px;height:42px;border-radius:12px;background:var(--glass);font-size:18px;display:grid;place-items:center;backdrop-filter:blur(6px)}
+#powers{position:absolute;left:20px;top:92px;display:flex;flex-direction:column;gap:6px}
+.pw{display:flex;align-items:center;gap:8px;background:var(--glass);border-radius:10px;padding:5px 10px 5px 6px;font-size:12px;font-weight:800;width:150px}
+.pw .ic{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:var(--ink);font-weight:1000;font-size:13px}
+.pw .bar{flex:1;height:5px;border-radius:9px;background:#ffffff25;overflow:hidden}
+.pw .bar i{display:block;height:100%;transform-origin:left}
+#tricks{position:absolute;left:50%;top:22%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px}
+.trick{font:italic 1000 22px/1.1 system-ui;letter-spacing:.02em;color:#fff;text-shadow:2px 2px 0 var(--pink),4px 4px 0 var(--ink);
+  animation:trick 1.1s cubic-bezier(.2,1.4,.4,1) forwards;white-space:nowrap}
+.trick small{font-size:14px;color:var(--yellow);margin-left:6px;text-shadow:2px 2px 0 var(--ink)}
+.trick.big{font-size:30px;color:var(--yellow);text-shadow:3px 3px 0 var(--pink),6px 6px 0 var(--ink)}
+@keyframes trick{0%{opacity:0;transform:scale(.4) rotate(-6deg)}15%{opacity:1;transform:scale(1.12) rotate(-3deg)}30%{transform:scale(1) rotate(-3deg)}80%{opacity:1}100%{opacity:0;transform:translateY(-26px) rotate(-3deg)}}
+#hint{position:absolute;left:50%;bottom:13%;transform:translateX(-50%);background:var(--ink);border:2px solid var(--yellow);border-radius:14px;
+  padding:11px 20px;font-size:17px;font-weight:900;box-shadow:5px 5px 0 var(--pink);white-space:nowrap;opacity:0;transition:opacity .25s,transform .25s}
+#hint.on{opacity:1;transform:translateX(-50%) translateY(-6px)}
+#flash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .35s}
+#speed-label{position:absolute;left:20px;bottom:18px;font:800 11px ui-monospace,monospace;letter-spacing:.15em;opacity:.75}
+
+/* Pause / result */
+.modal{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:rgba(20,14,50,.45);backdrop-filter:blur(3px)}
+.card{width:min(440px,92vw);background:var(--paper);color:var(--ink);border-radius:24px;padding:26px 26px 22px;box-shadow:8px 8px 0 var(--pink),0 24px 60px #0006;position:relative}
+.card h3{font:italic 1000 30px/1 system-ui;letter-spacing:-.02em}
+.card .cause{display:inline-block;margin:10px 0 2px;font-size:13px;font-weight:800;background:var(--ink);color:#fff;padding:4px 10px;border-radius:8px}
+.big-score{font:italic 1000 58px/1 system-ui;letter-spacing:-.03em;margin:14px 0 2px}
+.newbest{position:absolute;right:18px;top:-14px;background:var(--yellow);color:var(--ink);font-weight:1000;padding:7px 12px;border-radius:10px;transform:rotate(6deg);box-shadow:3px 3px 0 var(--ink);animation:wob 1s ease-in-out infinite}
+@keyframes wob{50%{transform:rotate(-4deg) scale(1.06)}}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0 14px}
+.missions{margin-top:16px;background:var(--glass);border-radius:14px;padding:11px 14px;font-size:12.5px;max-width:380px;backdrop-filter:blur(6px)}
+.missions .mhead{font-weight:800;font-size:11.5px;letter-spacing:.04em;margin-bottom:6px;color:var(--pink2)}
+.missions .mhead b{color:var(--yellow)}
+.missions ul{list-style:none;display:grid;gap:4px}
+.missions li{display:flex;gap:8px;align-items:baseline;font-weight:700}
+.missions li i{font-style:normal;color:var(--yellow);width:14px}
+.missions li.done span{text-decoration:line-through;opacity:.75}
+.missions .mprog{margin-left:auto;font:700 11px ui-monospace,monospace;opacity:.7;white-space:nowrap}
+.missions.light{background:#efe8ff;color:var(--ink);margin:0 0 16px;max-width:none;backdrop-filter:none}
+.missions.light .mhead{color:#7a3fb0}
+.missions.light .mhead b,.missions.light li i{color:#d18a00}
+.stat{background:#efe8ff;border-radius:12px;padding:9px 12px}
+.stat small{display:block;font-size:10px;font-weight:900;letter-spacing:.12em;color:#7a6fb0}
+.stat b{font-size:19px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+#result{background:transparent;backdrop-filter:none;place-items:center end;padding-right:max(24px,6vw)}
+#result .card{width:min(400px,90vw)}
+
+/* Touch */
+#touch-help{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);font-size:12px;font-weight:800;background:var(--glass);border-radius:99px;padding:7px 14px;opacity:.9}
+
+@media (max-width:760px){
+  #title .left{left:20px;right:20px;width:auto;top:auto;bottom:30px;transform:none}
+  .logo{font-size:52px}
+  .tagline{font-size:13px;margin:10px 0 16px}
+  #title .missions{font-size:11.5px;padding:8px 11px;margin-top:10px}
+  .controls{display:none}
+  #score{font-size:28px}#mult{width:50px;height:50px}#mult b{font-size:19px}
+  #powers{top:78px}
+  .trick{font-size:18px}.trick.big{font-size:23px}
+  #hint{font-size:13px;white-space:normal;width:86vw;text-align:center}
+  #result{place-items:end center;padding:0 0 18px}
+  .big-score{font-size:44px}
+}
+@media (prefers-reduced-motion:reduce){.trick{animation-duration:1.4s}}
+</style>
+<script type="importmap">{"imports":{
+  "three":"./vendor/three/build/three.module.js",
+  "three/addons/":"./vendor/three/examples/jsm/",
+  "@pixiv/three-vrm":"./vendor/pixiv_three-vrm/lib/three-vrm.module.min.js"}}</script>
+</head>
+<body>
+<canvas id="game" aria-label="게임 화면"></canvas>
+
+<div id="loading"><div class="box"><h2>SKYLINE DASH</h2><div id="load-bar"><i></i></div><div id="load-msg">지피짱 불러오는 중…</div></div></div>
+
+<div id="title" class="hidden">
+  <div class="left">
+    <div class="logo-ko">지피짱 파쿠르 러너</div>
+    <h1 class="logo">SKYLINE<span>DASH!</span></h1>
+    <p class="tagline">노을 진 옥상을 끝없이 달린다! 뛰고, 미끄러지고, 벽을 타고, 빌딩 사이를 날아서 —<br>기술을 이어 배율을 ×8까지 올려 보자.</p>
+    <button class="btn" id="start-btn">달리기 시작 <kbd>Space</kbd></button>
+    <div class="best-line" id="best-line"></div>
+    <div class="missions" id="title-missions"></div>
+  </div>
+  <div class="controls" aria-label="조작법">
+    <div class="h">CONTROLS</div>
+    <span>점프 · 공중 2단 점프</span><kbd>↑ W Space</kbd>
+    <span>슬라이드 · 공중 급강하</span><kbd>↓ S</kbd>
+    <span>차선 이동</span><kbd>← → A D</kbd>
+    <span>벽타기 (공중에서 벽 쪽)</span><kbd>← →</kbd>
+    <span>일시정지</span><kbd>Esc P</kbd>
+    <span>소리</span><kbd>M</kbd>
+  </div>
+</div>
+
+<div id="hud" class="layer">
+  <div id="score-box">
+    <div id="mult" data-m="1"><b>×1</b></div>
+    <div><div id="score">0</div><div id="score-sub" class="mono">0 m</div></div>
+  </div>
+  <div id="powers"></div>
+  <div id="right-hud">
+    <div class="chipbox"><i></i><span id="chips">0</span></div>
+    <button class="icon-btn" id="mute-btn" aria-label="소리 끄기">♪</button>
+    <button class="icon-btn" id="pause-btn" aria-label="일시정지">❚❚</button>
+  </div>
+  <div id="tricks"></div>
+  <div id="hint"></div>
+  <div id="flash"></div>
+  <div id="speed-label" class="mono"></div>
+  <div id="touch-help" class="hidden">스와이프 ↑점프 ↓슬라이드 ←→이동 · 탭=점프</div>
+</div>
+
+<div id="pause" class="modal hidden">
+  <div class="card">
+    <h3>잠깐 쉬는 중</h3>
+    <p style="margin:10px 0 20px;font-size:14px;font-weight:600;color:#5b5290">숨 고르고 다시 달려요!</p>
+    <div class="row"><button class="btn" id="resume-btn">계속 <kbd>Esc</kbd></button><button class="btn secondary" id="quit-btn">타이틀로</button></div>
+  </div>
+</div>
+
+<div id="result" class="modal hidden">
+  <div class="card">
+    <div class="newbest hidden" id="newbest">NEW BEST!</div>
+    <h3>RUN OVER</h3>
+    <div class="cause" id="cause"></div>
+    <div class="big-score" id="final-score">0</div>
+    <div style="font-size:12px;font-weight:800;color:#7a6fb0" id="best-text"></div>
+    <div class="stats">
+      <div class="stat"><small>거리</small><b id="st-dist">0 m</b></div>
+      <div class="stat"><small>칩</small><b id="st-chips">0</b></div>
+      <div class="stat"><small>최고 배율</small><b id="st-mult">×1</b></div>
+      <div class="stat"><small>기술</small><b id="st-tricks">0</b></div>
+    </div>
+    <div class="missions light" id="result-missions"></div>
+    <div class="row"><button class="btn" id="retry-btn">다시 달리기 <kbd>Space</kbd></button><button class="btn secondary" id="menu-btn">타이틀</button></div>
+  </div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
