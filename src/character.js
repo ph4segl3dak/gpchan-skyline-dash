@@ -15,6 +15,36 @@ const BONES = ['hips', 'spine', 'chest', 'upperChest', 'neck', 'head',
 
 export const MODEL_HEIGHT = 1.72;
 
+// Sprint cycle for one leg, phase 0 = foot strike. [phase, forward z, lift above ground] in leg lengths.
+// Strike → stance (planted) → toe-off → heel kick → knee drive → reach → strike.
+const RUN_KEYS = [
+  [0.00, 0.20, 0.00],
+  [0.11, 0.00, 0.00],
+  [0.24, -0.40, 0.02],
+  [0.38, -0.36, 0.40],
+  [0.56, 0.08, 0.50],
+  [0.72, 0.38, 0.34],
+  [0.88, 0.34, 0.08],
+  [1.00, 0.20, 0.00],
+];
+const catmull = (p0, p1, p2, p3, t) => {
+  const t2 = t * t, t3 = t2 * t;
+  return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+};
+// Smooth looping sample of the sprint keys: returns [z, lift].
+function runFoot(ph) {
+  const n = RUN_KEYS.length - 1;
+  let i = 0;
+  while (i < n - 1 && ph >= RUN_KEYS[i + 1][0]) i++;
+  const k = j => RUN_KEYS[((j % n) + n) % n];
+  const a = RUN_KEYS[i], b = RUN_KEYS[i + 1];
+  const t = (ph - a[0]) / (b[0] - a[0]);
+  const z = catmull(k(i - 1)[1], a[1], b[1], k(i + 2)[1], t);
+  const lift = catmull(k(i - 1)[2], a[2], b[2], k(i + 2)[2], t);
+  // Planted from strike to toe-off.
+  return [z, ph < 0.24 ? 0 : Math.max(0, lift)];
+}
+
 export async function loadCharacter(onProgress = () => {}) {
   const loader = new GLTFLoader();
   loader.register(parser => new VRMLoaderPlugin(parser));
@@ -141,7 +171,7 @@ export async function loadCharacter(onProgress = () => {}) {
     if (p.wall) wallSide = p.wall.side;
 
     const speed = p.speed || 0;
-    phase = (phase + dt * (running ? 1.85 + speed * 0.036 : 0)) % 1;
+    phase = (phase + dt * (running ? 2.5 + speed * 0.03 : 0)) % 1;
     latVel = damp(latVel, ((p.x ?? 0) - lastX) / Math.max(dt, 1e-4), 10, dt);
     lastX = p.x ?? 0;
     landKick = Math.max(0, landKick - dt * 4.2);
@@ -169,16 +199,20 @@ export async function loadCharacter(onProgress = () => {}) {
 
     // ---- Run cycle (also used on walls)
     const w = 1 - menuW;
-    const lean = 0.3 + speed * 0.006 + boostW * 0.32;
-    const twist = Math.sin(phase * Math.PI * 2) * 0.16;
-    blend('spine', lean, -twist * 0.4, 0, w);
-    blend('chest', 0.1, -twist, 0, w);
-    blend('upperChest', 0, -twist * 0.4, 0, w);
-    blend('head', -lean * 0.85, twist * 0.5, 0, w);
-    blend('hips', 0, twist * 0.9, 0, w);
-    const swing = Math.sin(phase * Math.PI * 2);
-    // Sprinting arms: bent elbows pumping against the legs.
-    arms(-0.25 + swing * 0.95, -1.28, 1.35 + swing * 0.25, -0.25 - swing * 0.95, 1.28, 1.35 - swing * 0.25, w, 0.15, -0.15);
+    const lean = 0.36 + speed * 0.006 + boostW * 0.28;
+    // c > 0 while the left leg reaches forward (its z peaks near phase 0.75).
+    const c = Math.cos((phase - 0.75) * Math.PI * 2);
+    const twist = c * 0.13;
+    blend('hips', 0, twist, 0, w);
+    blend('spine', lean, -twist * 0.6, 0, w);
+    blend('chest', 0.08, -twist * 0.9, 0, w);
+    blend('upperChest', 0, -twist * 0.3, 0, w);
+    blend('neck', -lean * 0.2, twist * 0.4, 0, w);
+    blend('head', -lean * 0.4, twist * 0.4, 0, w);
+    // Sprint arms pump from the shoulder, opposite to the legs: forward hand rises
+    // toward the chin with a tight elbow, the back arm opens with the elbow behind.
+    arms(-0.3 + 1.05 * c, -1.3, 1.3 - 0.45 * c, -0.3 - 1.05 * c, 1.3, 1.3 + 0.45 * c, w);
+    blend('leftHand', 0, 0, -0.15, w); blend('rightHand', 0, 0, 0.15, w);
     // Overdrive: arms swept back (the classic ninja run).
     arms(0.95, -1.15, 0.12, 0.95, 1.15, 0.12, boostW * w, -0.1, 0.1);
 
@@ -239,27 +273,23 @@ export async function loadCharacter(onProgress = () => {}) {
     }
 
     // ---- Legs
-    const bob = runW * (0.5 + 0.5 * Math.cos(phase * Math.PI * 4)) * 0.045 * L;
-    const desiredCrouch = landKick * 0.32 * L + runW * 0.05 * L + bob + mantle * 0.25 * L;
+    // Hips sink at mid-stance of each step and float during the flight phase.
+    const stepU = (phase * 2) % 1;
+    const bob = runW * (0.012 + 0.05 * Math.exp(-(((stepU - 0.11) / 0.09) ** 2))) * L;
+    const desiredCrouch = landKick * 0.32 * L + runW * 0.035 * L + bob + mantle * 0.25 * L;
     crouch = damp(crouch, desiredCrouch, 30, dt);
     bones.hips.position.y = hipsRestY - crouch * (1 - menuW);
     for (const leg of legs) {
       const off = leg.sign > 0 ? 0 : 0.5;
       const ph = (phase + off) % 1;
       // Run: stance 0..0.38 pushes the foot back, swing drives the knee high.
-      let rx, ry, rz, toe = 0;
-      if (ph < 0.38) {
-        const u = ph / 0.38;
-        rz = THREE.MathUtils.lerp(0.32, -0.42, u) * L;
-        ry = -0.97 * L + crouch;
-        toe = -0.3 * u;
-      } else {
-        const u = (ph - 0.38) / 0.62;
-        rz = THREE.MathUtils.lerp(-0.42, 0.36, smooth(u)) * L;
-        ry = -0.97 * L + crouch + Math.pow(Math.sin(Math.PI * u), 0.75) * (0.42 + speed * 0.004) * L;
-        toe = 0.4 * Math.sin(Math.PI * u);
-      }
-      rx = leg.sign * 0.06 * L;
+      const [kz, lift] = runFoot(ph);
+      const reach = 1 + Math.min(0.25, Math.max(0, speed - 14) * 0.015);
+      let rx = leg.sign * 0.025 * L;
+      let rz = kz * reach * L;
+      let ry = -0.975 * L + crouch + lift * L;
+      // Toe points down during push-off and the heel kick, flat on strike.
+      let toe = ph < 0.11 ? 0 : ph < 0.45 ? 0.45 * Math.sin(Math.PI * (ph - 0.11) / 0.34) : -0.1 * Math.sin(Math.PI * (ph - 0.45) / 0.55);
       // Air: tuck rising, legs reach when falling; flip tucks tight.
       const front = leg.sign > 0 ? 1 : -0.6;
       const ax = leg.sign * 0.08 * L;
@@ -293,7 +323,8 @@ export async function loadCharacter(onProgress = () => {}) {
     pivot.position.y = hipHeight - slideW * 0.5 - (crashW * (p.cause === 'fall' ? 0 : 0.55));
 
     // Pose smoothing
-    const k = 1 - Math.exp(-dt * (flipping || mantle > 0 ? 40 : 26));
+    // The run cycle is ~3 Hz: slow smoothing would shrink and delay it, so track it tightly.
+    const k = 1 - Math.exp(-dt * (flipping || mantle > 0 ? 40 : 26 + 54 * runW));
     for (const n in bones) bones[n].quaternion.slerp(targets[n], k);
     if (api.debugPose) for (const [n, e] of Object.entries(api.debugPose)) bones[n]?.quaternion.setFromEuler(euler.set(...e));
 
