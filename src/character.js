@@ -19,7 +19,8 @@ export async function loadCharacter(onProgress = () => {}) {
   const loader = new GLTFLoader();
   loader.register(parser => new VRMLoaderPlugin(parser));
   const gltf = await loader.loadAsync('./assets/jibbi_chan_bunny_vroid_v026a_stocking_neutral.vrm',
-    e => onProgress(e.total ? e.loaded / e.total : 0.5));
+    // Pages serves the VRM gzip-compressed, so the decoded byte count can exceed Content-Length.
+    e => onProgress(e.loaded / Math.max(e.total || 0, 19421260)));
   const vrm = gltf.userData.vrm;
   if (!vrm) throw new Error('VRM 캐릭터 데이터가 없습니다.');
   VRMUtils.rotateVRM0(vrm);

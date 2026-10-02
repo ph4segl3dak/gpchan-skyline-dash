@@ -11,6 +11,10 @@ import { createAutopilot } from './autopilot.js';
 import { createMissionState, missionText, missionValue, checkMissions, settleMissions, bonusFor } from './missions.js';
 
 const $ = id => document.getElementById(id);
+function showFatal(title, detail) {
+  const box = document.querySelector('#loading .box');
+  if (box) box.innerHTML = `<h2>SKYLINE DASH</h2><p class="fatal-title">${title}</p><p class="fatal-detail">${detail}</p>`;
+}
 const params = new URLSearchParams(location.search);
 const AUTO = params.has('auto');
 const damp = THREE.MathUtils.damp;
@@ -26,7 +30,15 @@ saved.missions = createMissionState(saved.missions);
 
 // ---------- Renderer ----------
 const canvas = $('game');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+} catch (err) {
+  // Without WebGL nothing can draw; say why instead of spinning forever.
+  showFatal('이 브라우저에서 3D(WebGL)가 꺼져 있어요.',
+    '크롬이라면 설정 → 시스템 → <b>“가능한 경우 그래픽 가속 사용”</b>을 켜고 크롬을 다시 실행해 주세요. 그래도 안 되면 chrome://gpu 에서 WebGL 상태를 확인해 주세요.');
+  throw err;
+}
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NoToneMapping;
 let pixelRatio = Math.min(window.devicePixelRatio || 1, 1.75);
@@ -88,7 +100,7 @@ scene.add(bubble);
 // ---------- Loading ----------
 (async () => {
   try {
-    character = await loadCharacter(p => { $('load-bar').firstElementChild.style.width = `${Math.round(p * 100)}%`; });
+    character = await loadCharacter(p => { $('load-bar').firstElementChild.style.width = `${Math.round(Math.min(1, p) * 100)}%`; });
     scene.add(character.root);
     $('loading').classList.add('hidden');
     toMenu();

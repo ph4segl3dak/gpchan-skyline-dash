@@ -28,6 +28,8 @@ button:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
 #load-bar{height:8px;border-radius:99px;background:#ffffff40;overflow:hidden}
 #load-bar i{display:block;height:100%;width:0;background:#fff;border-radius:99px;transition:width .2s}
 #load-msg{margin-top:10px;font-size:12px;opacity:.85}
+.fatal-title{font-size:17px;font-weight:900;margin:6px 0 10px}
+.fatal-detail{font-size:13px;line-height:1.6;background:#1a1438cc;border-radius:12px;padding:12px 14px;text-align:left}
 
 /* Title */
 #title{position:fixed;inset:0;z-index:20;pointer-events:none}
@@ -201,6 +203,12 @@ button:focus-visible{outline:3px solid var(--cyan);outline-offset:3px}
   </div>
 </div>
 
+<script>
+window.addEventListener('error', e => {
+  const msg = document.getElementById('load-msg');
+  if (msg && !document.getElementById('loading').classList.contains('hidden')) msg.textContent = '불러오기 오류: ' + (e.message || '알 수 없는 오류');
+});
+</script>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

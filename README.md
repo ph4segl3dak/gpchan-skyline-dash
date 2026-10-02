@@ -11,7 +11,13 @@ python3 serve.py 4188
 
 [스카이라인 대시 열기](http://127.0.0.1:4188/)
 
-`serve.py`는 캐시를 끈 로컬 서버다(수정 후 새로고침하면 바로 반영). Three.js·VRM·후처리·효과음/음악 합성이 모두 로컬에 있고 npm 설치·CDN·외부 서비스가 필요 없다. `file://`로는 열리지 않는다. 공개 배포하지 않았다.
+`serve.py`는 캐시를 끈 로컬 서버다(수정 후 새로고침하면 바로 반영). Three.js·VRM·후처리·효과음/음악 합성이 모두 로컬에 있고 npm 설치·CDN·외부 서비스가 필요 없다. `file://`로는 열리지 않는다.
+
+## 공개 배포 (GitHub Pages, 2026-10-02)
+
+- 주소: https://ph4segl3dak.github.io/gpchan-skyline-dash/
+- 저장소: https://github.com/ph4segl3dak/gpchan-skyline-dash (공개, `main` 브랜치 루트, `.nojekyll`). 이 폴더 내용만 올렸고 VRM 원본 복사본도 공개 파일로 포함된다.
+- 다시 배포: 이 폴더를 저장소 클론에 덮어써 커밋·푸시하면 Pages가 자동으로 다시 빌드한다(1분 안팎).
 
 ## 조작
 
